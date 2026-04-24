@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Auto Subtitle - Star_show</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <h1>🎬 AI Auto Subtitle</h1>
+        <p>อัปโหลดวิดีโอเพื่อสร้างคำบรรยายอัตโนมัติ</p>
+        
+        <div class="upload-section">
+            <input type="file" id="videoInput" accept="video/*">
+            <button id="uploadBtn" onclick="uploadVideo()">เริ่มสร้าง Subtitle</button>
+        </div>
+
+        <div id="status" class="status-text"></div>
+        
+        <div class="result-area">
+            <h3>ผลลัพธ์:</h3>
+            <div id="subtitleResult" class="subtitle-box">
+                ข้อความจะปรากฏที่นี่...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function uploadVideo() {
+            const fileInput = document.getElementById('videoInput');
+            const status = document.getElementById('status');
+            const resultBox = document.getElementById('subtitleResult');
+            const btn = document.getElementById('uploadBtn');
+
+            if (fileInput.files.length === 0) {
+                alert("กรุณาเลือกไฟล์วิดีโอก่อนครับ");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('video', fileInput.files[0]);
+
+            // เตรียมหน้าจอขณะรอ
+            status.innerText = "⏳ กำลังประมวลผล... (อาจใช้เวลาสักครู่)";
+            btn.disabled = true;
+            resultBox.innerText = "AI กำลังฟังเสียงและถอดความ...";
+
+            try {
+                // เปลี่ยน URL เป็นที่อยู่ Server ของคุณ (ถ้าใช้ Codespaces ต้องเปลี่ยนตามที่ระบบแจ้ง)
+                const response = await fetch('/transcribe', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.subtitle) {
+                    status.innerText = "✅ เสร็จเรียบร้อย!";
+                    resultBox.innerText = data.subtitle;
+                } else {
+                    status.innerText = "❌ เกิดข้อผิดพลาด";
+                    resultBox.innerText = data.error || "ไม่สามารถประมวลผลได้";
+                }
+            } catch (error) {
+                status.innerText = "❌ เชื่อมต่อ Server ไม่ได้";
+                console.error(error);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
