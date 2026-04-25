@@ -3,40 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Star_show Pulse | AI Sub Editor</title>
+    <title>Star_show Pulse | AI Master</title>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;600&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Kanit', sans-serif; background: #0f172a; color: white; padding: 20px; display: flex; justify-content: center; min-height: 100vh; }
-        .container { max-width: 650px; width: 100%; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(15px); padding: 30px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.5); text-align: center; }
+        .container { max-width: 600px; width: 100%; background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(15px); padding: 35px; border-radius: 25px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.5); text-align: center; }
         h1 { background: linear-gradient(to right, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 5px; }
-        .btn { background: #6366f1; color: white; border: none; padding: 14px; border-radius: 12px; width: 100%; cursor: pointer; font-weight: bold; margin: 10px 0; font-size: 16px; }
-        .btn:hover { transform: translateY(-2px); background: #4f46e5; }
-        .sub-scroll { max-height: 350px; overflow-y: auto; margin: 20px 0; padding-right: 10px; }
+        .btn { background: #6366f1; color: white; border: none; padding: 15px; border-radius: 12px; width: 100%; cursor: pointer; font-weight: bold; margin: 10px 0; font-size: 16px; transition: 0.3s; }
+        .btn:hover { background: #4f46e5; transform: scale(1.02); }
+        .btn:disabled { background: #475569; cursor: not-allowed; }
+        .sub-scroll { max-height: 300px; overflow-y: auto; margin: 20px 0; padding-right: 10px; text-align: left; }
         .sub-input { background: #1e293b; border: 1px solid #6366f1; color: #fbbf24; width: 100%; padding: 12px; border-radius: 10px; margin-bottom: 8px; font-family: 'Kanit'; font-size: 16px; }
-        #editor { display: none; text-align: left; animation: fadeIn 0.5s ease; }
-        #videoPlayer { width: 100%; margin-top: 25px; border-radius: 15px; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        #loader { display: none; margin: 25px 0; border: 2px solid #6366f1; padding: 15px; border-radius: 15px; background: rgba(99, 102, 241, 0.1); }
+        #videoPlayer { width: 100%; margin-top: 25px; border-radius: 15px; display: none; }
         #previewSub { font-size: 30px; color: #fbbf24; font-weight: bold; text-shadow: 2px 2px 4px #000; min-height: 50px; margin-top: 15px; }
-        .loader { display: none; color: #fbbf24; font-weight: bold; margin: 20px 0; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        #editor { display: none; animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🎬 Star_show Pulse V3</h1>
-        <p style="color: #94a3b8; margin-bottom: 20px;">AI Video Subtitle Editor & Burner</p>
+        <p style="color: #94a3b8; margin-bottom: 25px;">AI Subtitle Editor & Burner</p>
         
-        <input type="file" id="fileInput" accept="video/*" class="btn" style="background:#334155">
+        <input type="file" id="fileInput" accept="video/*" class="btn" style="background:#334155" onchange="document.getElementById('transBtn').disabled=false">
         <button class="btn" id="transBtn" onclick="transcribe()">✨ 1. เริ่มแกะเสียงด้วย AI</button>
-        <div class="loader" id="loader">⏳ กำลังประมวลผล... กรุณารอสักครู่</div>
+
+        <div id="loader">
+            <div id="spinner" style="font-size: 24px; margin-bottom: 8px;">⏳</div>
+            <div id="statusText" style="color: #fbbf24; font-size: 16px;">กำลังเตรียมการ...</div>
+        </div>
 
         <div id="editor">
-            <h3 style="color: #e2e8f0;">📝 แก้ไขคำผิดที่นี่:</h3>
+            <h3 style="color: #e2e8f0; margin-bottom: 15px;">📝 แก้ไขคำผิดที่นี่:</h3>
             <div id="subList" class="sub-scroll"></div>
             <button class="btn" style="background: #22c55e;" onclick="burnVideo()">🔥 2. ยืนยันการแก้ไข & ฝังซับ</button>
         </div>
 
         <video id="videoPlayer" controls></video>
         <div id="previewSub"></div>
+        
         <a href="/download" id="dlBtn" style="display:none; text-decoration: none;">
             <button class="btn" style="background: #ef4444;">✅ 3. ดาวน์โหลดวิดีโอ (ถาวร)</button>
         </a>
@@ -44,53 +50,66 @@
 
     <script>
         let subs = [];
+
+        function setStatus(text, show = true) {
+            document.getElementById('loader').style.display = show ? 'block' : 'none';
+            document.getElementById('statusText').innerText = text;
+        }
+
         async function transcribe() {
             const file = document.getElementById('fileInput').files[0];
-            if(!file) return alert("กรุณาเลือกไฟล์วิดีโอก่อน!");
+            if(!file) return alert("เลือกไฟล์ก่อน!");
             const fd = new FormData(); fd.append('video', file);
-            document.getElementById('loader').style.display = 'block';
-
-            const res = await fetch('/transcribe', { method: 'POST', body: fd });
-            const data = await res.json();
-            subs = data.segments;
             
-            const list = document.getElementById('subList');
-            list.innerHTML = "";
-            subs.forEach((s, i) => {
-                list.innerHTML += `<input class="sub-input" value="${s.text}" oninput="subs[${i}].text = this.value">`;
-            });
-            document.getElementById('editor').style.display = 'block';
-            document.getElementById('loader').style.display = 'none';
+            setStatus("🚀 กำลังส่งไฟล์ไปให้ AI แกะเสียง...");
+            document.getElementById('transBtn').disabled = true;
+
+            try {
+                const res = await fetch('/transcribe', { method: 'POST', body: fd });
+                const data = await res.json();
+                subs = data.segments;
+                
+                const list = document.getElementById('subList');
+                list.innerHTML = "";
+                subs.forEach((s, i) => {
+                    list.innerHTML += `<input class="sub-input" value="${s.text}" oninput="subs[${i}].text = this.value">`;
+                });
+                
+                document.getElementById('editor').style.display = 'block';
+                setStatus("", false);
+            } catch (e) { alert("Error!"); setStatus("", false); }
         }
 
         async function burnVideo() {
-            document.getElementById('loader').innerText = "🔥 กำลังเรนเดอร์วิดีโอ... ห้ามปิดหน้านี้";
-            document.getElementById('loader').style.display = 'block';
+            setStatus("🎬 กำลังเรนเดอร์วิดีโอด้วย FFmpeg... ห้ามปิดหน้าเว็บ");
             
-            await fetch('/burn', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({subs: subs})
-            });
-            
-            const player = document.getElementById('videoPlayer');
-            player.src = "/download?t=" + new Date().getTime();
-            player.style.display = 'block';
-            document.getElementById('dlBtn').style.display = 'block';
-            document.getElementById('loader').style.display = 'none';
-
-            // ระบบเด้งซับทีละคำ (Word-by-word)
-            player.ontimeupdate = function() {
-                const now = this.currentTime;
-                const active = subs.find(s => now >= s.start && now <= s.end);
-                const display = document.getElementById('previewSub');
-                if (active) {
-                    const words = active.text.split(' ');
-                    const progress = (now - active.start) / (active.end - active.start);
-                    const wordIndex = Math.floor(progress * words.length);
-                    display.innerText = words.slice(0, wordIndex + 1).join(' ');
-                } else { display.innerText = ""; }
-            };
+            try {
+                await fetch('/burn', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({subs: subs})
+                });
+                
+                setStatus("✨ เสร็จสมบูรณ์! กำลังดึงวิดีโอ...", true);
+                const player = document.getElementById('videoPlayer');
+                player.src = "/download?t=" + new Date().getTime();
+                player.style.display = 'block';
+                document.getElementById('dlBtn').style.display = 'block';
+                
+                // ระบบเด้งซับทีละคำ
+                player.ontimeupdate = function() {
+                    const now = this.currentTime;
+                    const active = subs.find(s => now >= s.start && now <= s.end);
+                    const display = document.getElementById('previewSub');
+                    if (active) {
+                        const words = active.text.split(' ');
+                        const progress = (now - active.start) / (active.end - active.start);
+                        const wordIndex = Math.floor(progress * words.length);
+                        display.innerText = words.slice(0, wordIndex + 1).join(' ');
+                    } else { display.innerText = ""; }
+                };
+                setTimeout(() => setStatus("", false), 2000);
+            } catch (e) { alert("Error!"); setStatus("", false); }
         }
     </script>
 </body>
