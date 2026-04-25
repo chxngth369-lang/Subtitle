@@ -25,17 +25,17 @@ def transcribe():
     video.save(file_path)
 
     try:
-        # 1. แกะเสียงด้วย Groq (Whisper Large V3)
+        # 1. แกะเสียงด้วย Groq Cloud
         with open(file_path, "rb") as file:
             transcription = client.audio.transcriptions.create(
                 file=(file_path, file.read()),
                 model="whisper-large-v3",
                 language="th",
-                prompt="ยังโอม, YOUNGOHM, ภาษาไทยวัยรุ่น, เพลงฮิปฮอป",
+                prompt="ยังโอม, YOUNGOHM, ธันวา, เพลงฮิปฮอป, ภาษาไทยวัยรุ่น",
                 response_format="verbose_json"
             )
         
-        # 2. สร้างไฟล์ซับไตเติ้ล (.srt)
+        # 2. สร้างไฟล์ซับ (.srt)
         srt_content = ""
         for i, s in enumerate(transcription.segments):
             start = format_time(s['start'])
@@ -45,11 +45,10 @@ def transcribe():
         with open("sub.srt", "w", encoding="utf-8") as f:
             f.write(srt_content)
 
-        # 3. ฝังซับลงวิดีโอ (สีเหลือง ขอบดำ ตัวหนา)
-        # ตัวกรอง subtitles จะอ่านไฟล์ sub.srt ไปแปะในวิดีโอ
+        # 3. ฝังซับด้วย FFmpeg (ใช้ฟอนต์ Loma เพื่อให้ภาษาไทยไม่เป็นสี่เหลี่ยม)
         cmd = [
             'ffmpeg', '-y', '-i', file_path, 
-            '-vf', "subtitles=sub.srt:force_style='FontSize=20,PrimaryColour=&H00FFFF,OutlineColour=&H000000,BorderStyle=1,Outline=1,Alignment=2'",
+            '-vf', "subtitles=sub.srt:force_style='FontName=Loma,FontSize=20,PrimaryColour=&H00FFFF,OutlineColour=&H000000,BorderStyle=1,Outline=1,Alignment=2'",
             '-c:a', 'copy', output_path
         ]
         subprocess.run(cmd, check=True)
@@ -66,10 +65,7 @@ def download():
     return send_file("output_video.mp4", as_attachment=True)
 
 def format_time(seconds):
-    h = int(seconds // 3600)
-    m = int((seconds % 3600) // 60)
-    s = int(seconds % 60)
-    ms = int((seconds % 1) * 1000)
+    h = int(seconds // 3600); m = int((seconds % 3600) // 60); s = int(seconds % 60); ms = int((seconds % 1) * 1000)
     return f"{h:02}:{m:02}:{s:02},{ms:03}"
 
 if __name__ == '__main__':
