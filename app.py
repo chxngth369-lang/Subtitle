@@ -1,13 +1,11 @@
 from flask import Flask, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS
 from groq import Groq
-import os
-import subprocess
+import os, subprocess
 
 app = Flask(__name__, static_folder='.')
 CORS(app)
 
-# ใส่ Key ของน้องครับ
 client = Groq(api_key="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")
 
 @app.route('/')
@@ -16,49 +14,38 @@ def index():
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
-    if 'video' not in request.files:
-        return jsonify({"error": "No file"}), 400
-    
     video = request.files['video']
-    file_path = "input_video.mp4"
-    output_path = "output_video.mp4"
-    video.save(file_path)
+    video.save("input_video.mp4")
+    with open("input_video.mp4", "rb") as f:
+        ts = client.audio.transcriptions.create(
+            file=("input_video.mp4", f.read()),
+            model="whisper-large-v3",
+            language="th",
+            response_format="verbose_json"
+        )
+    return jsonify({"segments": [{"start": s['start'], "end": s['end'], "text": s['text']} for s in ts.segments]})
 
-    try:
-        # 1. แกะเสียงด้วย Groq Cloud
-        with open(file_path, "rb") as file:
-            transcription = client.audio.transcriptions.create(
-                file=(file_path, file.read()),
-                model="whisper-large-v3",
-                language="th",
-                prompt="ยังโอม, YOUNGOHM, ธันวา, เพลงฮิปฮอป, ภาษาไทยวัยรุ่น",
-                response_format="verbose_json"
-            )
-        
-        # 2. สร้างไฟล์ซับ (.srt)
-        srt_content = ""
-        for i, s in enumerate(transcription.segments):
-            start = format_time(s['start'])
-            end = format_time(s['end'])
-            srt_content += f"{i+1}\n{start} --> {end}\n{s['text'].strip()}\n\n"
-        
-        with open("sub.srt", "w", encoding="utf-8") as f:
-            f.write(srt_content)
+@app.route('/burn', methods=['POST'])
+def burn():
+    data = request.json
+    subs = data.get('subs', [])
+    
+    # สร้างไฟล์ .srt จากข้อมูลที่น้องแก้
+    srt_content = ""
+    for i, s in enumerate(subs):
+        srt_content += f"{i+1}\n{format_time(s['start'])} --> {format_time(s['end'])}\n{s['text']}\n\n"
+    
+    with open("sub.srt", "w", encoding="utf-8") as f:
+        f.write(srt_content)
 
-        # 3. ฝังซับด้วย FFmpeg (ใช้ฟอนต์ Loma เพื่อให้ภาษาไทยไม่เป็นสี่เหลี่ยม)
-        cmd = [
-            'ffmpeg', '-y', '-i', file_path, 
-            '-vf', "subtitles=sub.srt:force_style='FontName=Loma,FontSize=20,PrimaryColour=&H00FFFF,OutlineColour=&H000000,BorderStyle=1,Outline=1,Alignment=2'",
-            '-c:a', 'copy', output_path
-        ]
-        subprocess.run(cmd, check=True)
-
-        return jsonify({
-            "success": True,
-            "segments": [{"start": s['start'], "end": s['end'], "text": s['text']} for s in transcription.segments]
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    # ฝังซับลงวิดีโอ
+    cmd = [
+        'ffmpeg', '-y', '-i', 'input_video.mp4', 
+        '-vf', "subtitles=sub.srt:force_style='FontName=TH Sarabun New,FontSize=26,PrimaryColour=&H00FFFF,OutlineColour=&H000000,BorderStyle=1,Outline=2,Alignment=2'",
+        '-c:a', 'copy', 'output_video.mp4'
+    ]
+    subprocess.run(cmd, check=True)
+    return jsonify({"success": True})
 
 @app.route('/download')
 def download():
