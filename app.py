@@ -1,22 +1,17 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-import whisper
+from groq import Groq
 import os
 
 app = Flask(__name__, static_folder='.')
 CORS(app)
 
-# ใช้ Small เพื่อความเสถียรบน Codespaces
-print("กำลังโหลด AI สมองระดับสูง (แบบเน้นความแม่นยำ)...")
-model = whisper.load_model("small")
+# ใส่ API Key ของน้องเรียบร้อยครับ
+client = Groq(api_key="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")
 
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
-
-@app.route('/<path:path>')
-def static_files(path):
-    return send_from_directory('.', path)
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
@@ -28,29 +23,21 @@ def transcribe():
     video.save(file_path)
 
     try:
-        print("AI กำลังใช้สมาธิแกะเสียงภาษาไทย...")
-        # ปรับจูนแบบละเอียดยิบ
-        result = model.transcribe(
-            file_path,
-            language="th",
-            # beam_size=10: ให้ AI คิดทบทวนคำสะกด 10 รอบก่อนพิมพ์ (ช้าแต่ชัวร์)
-            beam_size=10,
-            # best_of=5: สั่งให้สุ่มเดา 5 แบบแล้วเลือกอันที่ฟังดูเป็นมนุษย์ที่สุด
-            best_of=5,
-            # temperature=0: ห้ามเดามั่ว ให้เอาที่ใกล้เคียงความจริงที่สุด
-            temperature=0,
-            # condition_on_previous_text=False: ไม่เอาประโยคเก่ามาเดาประโยคใหม่ (กันการหลอน)
-            condition_on_previous_text=False,
-            initial_prompt="สวัสดีครับ ยินดีต้อนรับเข้าสู่ช่องของผม วันนี้เราจะมาทำอะไรสนุกๆ กันนะครับ",
-            fp16=False
-        )
+        print("ส่งเสียงไปประมวลผลที่ Groq Cloud (ใช้ Whisper-Large-V3)...")
+        with open(file_path, "rb") as file:
+            transcription = client.audio.transcriptions.create(
+                file=(file_path, file.read()),
+                model="whisper-large-v3", # ตัวท็อปที่สุด แม่นยำที่สุด
+                language="th",
+                response_format="verbose_json"
+            )
         
+        # จัดรูปแบบข้อความให้สวยงาม
         formatted_text = ""
-        for segment in result['segments']:
+        for segment in transcription.segments:
+            start = int(segment['start'])
             text = segment['text'].strip()
-            # คัดกรองคำแปลกๆ ที่ AI ชอบหลอนออกมาเอง
-            if text and len(text) > 1:
-                start = int(segment['start'])
+            if text:
                 formatted_text += f"[{start}s] {text}\n"
 
         return jsonify({"subtitle": formatted_text})
