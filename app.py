@@ -6,8 +6,8 @@ import os
 app = Flask(__name__, static_folder='.')
 CORS(app)
 
-# ใช้รุ่น Small เพราะบาลานซ์ระหว่างความเร็วและความฉลาดได้ดีที่สุดบนเครื่องฟรี
-print("กำลังโหลด AI สมองระดับสูง (CapCut Style)...")
+# ใช้ Small เพื่อความเสถียรบน Codespaces
+print("กำลังโหลด AI สมองระดับสูง (แบบเน้นความแม่นยำ)...")
 model = whisper.load_model("small")
 
 @app.route('/')
@@ -28,26 +28,29 @@ def transcribe():
     video.save(file_path)
 
     try:
-        print("AI กำลังวิเคราะห์เสียงพูดแบบละเอียด...")
-        # ปรับจูนให้ฉลาดแบบ CapCut
+        print("AI กำลังใช้สมาธิแกะเสียงภาษาไทย...")
+        # ปรับจูนแบบละเอียดยิบ
         result = model.transcribe(
             file_path,
             language="th",
-            # initial_prompt: ช่วยให้ AI เข้าใจบริบทภาษาไทย และคำศัพท์วัยรุ่น/ชื่อเฉพาะ
-            initial_prompt="สวัสดีครับ ผมชื่อเนท วันนี้เราจะมาทำคลิปสนุกๆ กันนะครับ", 
-            # beam_size: ให้ AI คิดหลายรอบก่อนเลือกคำที่ถูกต้องที่สุด (ยิ่งเยอะยิ่งแม่น แต่จะช้าลง)
-            beam_size=5,
-            # temperature: ปรับให้ AI ไม่เดามั่วจนเกินไป
+            # beam_size=10: ให้ AI คิดทบทวนคำสะกด 10 รอบก่อนพิมพ์ (ช้าแต่ชัวร์)
+            beam_size=10,
+            # best_of=5: สั่งให้สุ่มเดา 5 แบบแล้วเลือกอันที่ฟังดูเป็นมนุษย์ที่สุด
+            best_of=5,
+            # temperature=0: ห้ามเดามั่ว ให้เอาที่ใกล้เคียงความจริงที่สุด
             temperature=0,
+            # condition_on_previous_text=False: ไม่เอาประโยคเก่ามาเดาประโยคใหม่ (กันการหลอน)
+            condition_on_previous_text=False,
+            initial_prompt="สวัสดีครับ ยินดีต้อนรับเข้าสู่ช่องของผม วันนี้เราจะมาทำอะไรสนุกๆ กันนะครับ",
             fp16=False
         )
         
         formatted_text = ""
         for segment in result['segments']:
-            start = int(segment['start'])
-            # ตัดช่องว่างส่วนเกินออกเพื่อให้ดูสะอาดแบบ Subtitle จริงๆ
             text = segment['text'].strip()
-            if text:
+            # คัดกรองคำแปลกๆ ที่ AI ชอบหลอนออกมาเอง
+            if text and len(text) > 1:
+                start = int(segment['start'])
                 formatted_text += f"[{start}s] {text}\n"
 
         return jsonify({"subtitle": formatted_text})
