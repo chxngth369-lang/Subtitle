@@ -3,80 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Video Master</title>
+    <title>AI Subtitle Pro</title>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Kanit', sans-serif; background: #0f172a; color: white; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .container { max-width: 600px; width: 100%; background: #1e293b; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; }
-        .upload-box { border: 2px dashed #6366f1; padding: 30px; border-radius: 15px; margin: 20px 0; cursor: pointer; }
-        .btn { background: #6366f1; color: white; border: none; padding: 12px 25px; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; margin: 5px 0; }
+        body { font-family: 'Kanit', sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; padding: 20px; }
+        .card { max-width: 500px; width: 100%; background: #1e293b; padding: 30px; border-radius: 25px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .upload-area { border: 2px dashed #6366f1; padding: 30px; border-radius: 15px; margin: 20px 0; cursor: pointer; }
+        .btn { background: #6366f1; color: white; border: none; padding: 15px; border-radius: 12px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 10px; }
         .btn-download { background: #22c55e; display: none; }
-        #videoPlayer { width: 100%; border-radius: 10px; margin-top: 20px; display: none; }
-        #subtitleOverlay { font-size: 24px; color: #fbbf24; font-weight: bold; margin-top: 10px; min-height: 40px; text-shadow: 2px 2px 4px #000; }
-        .loader { display: none; margin: 20px 0; color: #6366f1; }
+        #videoPlayer { width: 100%; border-radius: 12px; margin-top: 20px; display: none; }
+        #subText { font-size: 22px; color: #fbbf24; margin-top: 10px; font-weight: bold; text-shadow: 2px 2px 4px #000; }
+        .loading { display: none; color: #6366f1; margin: 20px 0; }
     </style>
 </head>
 <body>
-
-<div class="container">
-    <h2>🎬 AI Auto Subtitle</h2>
-    <p>ใส่ซับไทยให้อัตโนมัติ (Powered by Groq)</p>
-
-    <div class="upload-box" onclick="document.getElementById('videoFile').click()">
-        <p id="fileLabel">📁 แตะเพื่อเลือกวิดีโอ</p>
-        <input type="file" id="videoFile" hidden accept="video/*" onchange="document.getElementById('fileLabel').innerText = this.files[0].name">
+    <div class="card">
+        <h2>🎬 AI Auto Subtitle</h2>
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <p id="fileName">📁 เลือกวิดีโอของคุณ</p>
+            <input type="file" id="fileInput" hidden accept="video/*" onchange="document.getElementById('fileName').innerText = this.files[0].name">
+        </div>
+        <button class="btn" id="runBtn" onclick="start()">🚀 เริ่มสร้างซับไตเติ้ล</button>
+        <div class="loading" id="loader">🔄 กำลังประมวลผล... ห้ามปิดหน้าจอนะ</div>
+        <a href="/download" id="dlLink"><button class="btn btn-download" id="dlBtn">✅ ดาวน์โหลดวิดีโอ (ซับติดถาวร)</button></a>
+        <video id="videoPlayer" controls></video>
+        <div id="subText"></div>
     </div>
 
-    <button class="btn" id="startBtn" onclick="processVideo()">🚀 เริ่มสร้างซับและฝังคลิป</button>
-    <div class="loader" id="loader">กำลังประมวลผล... (กรุณารอประมาณ 30-60 วินาที)</div>
-    
-    <a href="/download" id="dlLink" style="text-decoration: none;">
-        <button class="btn btn-download" id="dlBtn">✅ ดาวน์โหลดวิดีโอพร้อมซับ</button>
-    </a>
+    <script>
+        let subs = [];
+        async function start() {
+            const file = document.getElementById('fileInput').files[0];
+            if (!file) return alert("เลือกไฟล์ก่อนครับ");
+            const fd = new FormData(); fd.append('video', file);
 
-    <video id="videoPlayer" controls></video>
-    <div id="subtitleOverlay"></div>
-</div>
+            document.getElementById('runBtn').style.display = 'none';
+            document.getElementById('loader').style.display = 'block';
 
-<script>
-    let segments = [];
-    async function processVideo() {
-        const fileInput = document.getElementById('videoFile');
-        if (fileInput.files.length === 0) return alert("เลือกไฟล์ก่อนนะ!");
-
-        const formData = new FormData();
-        formData.append('video', fileInput.files[0]);
-
-        // UI Changes
-        document.getElementById('startBtn').disabled = true;
-        document.getElementById('loader').style.display = 'block';
-        document.getElementById('dlBtn').style.display = 'none';
-
-        try {
-            const res = await fetch('/transcribe', { method: 'POST', body: formData });
-            const data = await res.json();
-
-            if (data.success) {
-                segments = data.segments;
-                const videoURL = URL.createObjectURL(fileInput.files[0]);
-                const player = document.getElementById('videoPlayer');
-                player.src = videoURL;
-                player.style.display = 'block';
-                document.getElementById('dlBtn').style.display = 'block';
-                
-                // Sync Subtitle on screen
-                player.ontimeupdate = () => {
-                    const current = player.currentTime;
-                    const active = segments.find(s => current >= s.start && current <= s.end);
-                    document.getElementById('subtitleOverlay').innerText = active ? active.text : "";
-                };
-            }
-        } catch (e) { alert("Error! ลองเช็คใน Terminal นะ"); }
-        finally {
-            document.getElementById('startBtn').disabled = false;
-            document.getElementById('loader').style.display = 'none';
+            try {
+                const res = await fetch('/transcribe', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (data.success) {
+                    subs = data.segments;
+                    document.getElementById('videoPlayer').src = URL.createObjectURL(file);
+                    document.getElementById('videoPlayer').style.display = 'block';
+                    document.getElementById('dlBtn').style.display = 'block';
+                    document.getElementById('videoPlayer').ontimeupdate = function() {
+                        const now = this.currentTime;
+                        const active = subs.find(s => now >= s.start && now <= s.end);
+                        document.getElementById('subText').innerText = active ? active.text : "";
+                    };
+                }
+            } catch (e) { alert("เกิดข้อผิดพลาด!"); }
+            finally { document.getElementById('loader').style.display = 'none'; }
         }
-    }
-</script>
+    </script>
 </body>
 </html>
