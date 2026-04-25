@@ -3,71 +3,212 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Subtitle Editor</title>
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;600&display=swap" rel="stylesheet">
+    <title>Star_show Pulse | AI Sub Editor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Kanit', sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; padding: 20px; }
-        .card { max-width: 600px; width: 100%; background: #1e293b; padding: 25px; border-radius: 20px; text-align: center; }
-        .btn { background: #6366f1; color: white; border: none; padding: 12px; border-radius: 10px; width: 100%; cursor: pointer; font-weight: bold; margin-top: 10px; }
-        .sub-item { background: #334155; margin: 10px 0; padding: 10px; border-radius: 8px; display: flex; align-items: center; }
-        .sub-input { background: transparent; border: 1px solid #475569; color: #fbbf24; width: 100%; padding: 5px; font-size: 16px; border-radius: 5px; }
-        #editor { display: none; margin-top: 20px; text-align: left; }
-        .loader { display: none; color: #6366f1; margin: 10px 0; }
-        #videoPlayer { width: 100%; margin-top: 20px; border-radius: 10px; display: none; }
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --accent: #fbbf24;
+            --danger: #ef4444;
+            --success: #22c55e;
+        }
+
+        * { box-sizing: border-box; transition: all 0.2s ease; }
+        
+        body {
+            font-family: 'Kanit', sans-serif;
+            background: radial-gradient(circle at top right, #1e1b4b, #0f172a);
+            color: #f8fafc;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 { font-weight: 600; margin-bottom: 8px; font-size: 28px; background: linear-gradient(to right, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        p.subtitle { color: #94a3b8; margin-bottom: 32px; font-weight: 300; }
+
+        /* Custom File Upload */
+        .upload-section {
+            border: 2px dashed rgba(99, 102, 241, 0.4);
+            border-radius: 16px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 24px;
+        }
+        .upload-section:hover { background: rgba(99, 102, 241, 0.05); border-color: var(--primary); }
+        .upload-section i { font-size: 40px; color: var(--primary); display: block; margin-bottom: 12px; }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            font-family: 'Kanit';
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); transform: translateY(-2px); }
+        .btn-primary:disabled { background: #475569; cursor: not-allowed; transform: none; }
+        
+        .btn-success { background: var(--success); color: white; margin-top: 20px; }
+        .btn-danger { background: var(--danger); color: white; text-decoration: none; }
+
+        /* Editor Section */
+        #editor { display: none; margin-top: 32px; animation: fadeIn 0.5s ease; }
+        .sub-scroll { max-height: 400px; overflow-y: auto; padding-right: 12px; margin: 20px 0; }
+        .sub-scroll::-webkit-scrollbar { width: 6px; }
+        .sub-scroll::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+
+        .sub-card {
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .time-tag { color: var(--accent); font-size: 12px; font-weight: 600; min-width: 45px; }
+        .sub-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 16px;
+            font-family: 'Kanit';
+            outline: none;
+            padding: 4px;
+            border-bottom: 1px solid transparent;
+        }
+        .sub-input:focus { border-bottom-color: var(--primary); }
+
+        /* Video Preview */
+        #videoPlayer {
+            width: 100%;
+            border-radius: 16px;
+            margin-top: 24px;
+            display: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .loader { display: none; margin: 20px 0; font-size: 14px; color: var(--accent); }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h2>✏️ AI Subtitle Editor</h2>
-        <input type="file" id="fileInput" accept="video/*" class="btn">
-        <button class="btn" id="transBtn" onclick="transcribe()">1. เริ่มแกะเสียง</button>
-        <div class="loader" id="loader">กำลังทำงาน...</div>
 
-        <div id="editor">
-            <h3>📝 แก้ไขซับไตเติ้ลตรงนี้:</h3>
-            <div id="subList"></div>
-            <button class="btn" style="background: #22c55e;" onclick="burnVideo()">2. ยืนยันคำผิดและสร้างวิดีโอ</button>
-        </div>
+<div class="container">
+    <h1>🎬 Star_show Pulse V3</h1>
+    <p class="subtitle">AI Video Subtitle Editor & Burner</p>
 
-        <video id="videoPlayer" controls></video>
-        <a href="/download" id="dlBtn" style="display:none"><button class="btn" style="background: #e11d48;">✅ 3. ดาวน์โหลดคลิปที่แก้แล้ว</button></a>
+    <div class="upload-section" onclick="document.getElementById('fileInput').click()">
+        <span id="fileName">📁 เลือกหรือลากไฟล์วิดีโอวางที่นี่</span>
+        <input type="file" id="fileInput" hidden accept="video/*" onchange="updateFileName(this)">
     </div>
 
-    <script>
-        let subs = [];
-        async function transcribe() {
-            const file = document.getElementById('fileInput').files[0];
-            if(!file) return alert("เลือกไฟล์ก่อน!");
-            const fd = new FormData(); fd.append('video', file);
-            document.getElementById('loader').style.display = 'block';
+    <button class="btn btn-primary" id="transBtn" onclick="transcribe()">
+        <span>✨ เริ่มแกะเสียงด้วย AI</span>
+    </button>
+    
+    <div id="loader" class="loader">⏳ กำลังประมวลผล... กรุณารอสักครู่</div>
 
+    <div id="editor">
+        <h3 style="font-size: 18px; margin-bottom: 16px; color: #e2e8f0;">📝 ตรวจทานและแก้คำผิด</h3>
+        <div class="sub-scroll" id="subList"></div>
+        <button class="btn btn-success" onclick="burnVideo()">🔥 ยืนยันการแก้ไขและฝังซับลงคลิป</button>
+    </div>
+
+    <video id="videoPlayer" controls></video>
+    <a href="/download" id="dlBtn" style="display:none; margin-top: 12px;" class="btn btn-danger">
+        🚀 ดาวน์โหลดคลิปสมบูรณ์
+    </a>
+</div>
+
+<script>
+    let subs = [];
+
+    function updateFileName(input) {
+        if (input.files.length > 0) {
+            document.getElementById('fileName').innerText = "เลือกไฟล์แล้ว: " + input.files[0].name;
+            document.getElementById('fileName').style.color = "#818cf8";
+        }
+    }
+
+    async function transcribe() {
+        const file = document.getElementById('fileInput').files[0];
+        if(!file) return alert("กรุณาเลือกไฟล์วิดีโอก่อนครับ!");
+        
+        const fd = new FormData(); fd.append('video', file);
+        document.getElementById('loader').style.display = 'block';
+        document.getElementById('transBtn').disabled = true;
+
+        try {
             const res = await fetch('/transcribe', { method: 'POST', body: fd });
-            subs = (await res.json()).segments;
+            const data = await res.json();
+            subs = data.segments;
             
             const list = document.getElementById('subList');
             list.innerHTML = "";
             subs.forEach((s, i) => {
-                list.innerHTML += `<div class="sub-item">
-                    <span style="margin-right:10px; color:#94a3b8">${Math.floor(s.start)}s</span>
+                list.innerHTML += `
+                <div class="sub-card">
+                    <span class="time-tag">${Math.floor(s.start)}s</span>
                     <input class="sub-input" value="${s.text}" oninput="subs[${i}].text = this.value">
                 </div>`;
             });
             document.getElementById('editor').style.display = 'block';
-            document.getElementById('loader').style.display = 'none';
-        }
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        } catch (e) { alert("เกิดข้อผิดพลาดในการเชื่อมต่อกับ AI"); }
+        finally { document.getElementById('loader').style.display = 'none'; }
+    }
 
-        async function burnVideo() {
-            document.getElementById('loader').style.display = 'block';
-            await fetch('/burn', {
+    async function burnVideo() {
+        document.getElementById('loader').innerText = "🔥 กำลังเรนเดอร์วิดีโอ... ขั้นตอนนี้อาจใช้เวลา 1-2 นาที";
+        document.getElementById('loader').style.display = 'block';
+        
+        try {
+            const res = await fetch('/burn', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({subs: subs})
             });
-            document.getElementById('videoPlayer').src = "/download?t=" + new Date().getTime();
-            document.getElementById('videoPlayer').style.display = 'block';
-            document.getElementById('dlBtn').style.display = 'block';
-            document.getElementById('loader').style.display = 'none';
-        }
-    </script>
+            if(res.ok) {
+                const player = document.getElementById('videoPlayer');
+                player.src = "/download?t=" + new Date().getTime();
+                player.style.display = 'block';
+                document.getElementById('dlBtn').style.display = 'inline-flex';
+                alert("สร้างวิดีโอสำเร็จ!");
+            }
+        } catch (e) { alert("เกิดข้อผิดพลาดในการเรนเดอร์!"); }
+        finally { document.getElementById('loader').style.display = 'none'; }
+    }
+</script>
+
 </body>
 </html>
